@@ -387,29 +387,16 @@ def eval_epoch(args, model, test_dataloader, device):
                 batch_feat_f.append(f_feat)
                 batch_feat_p.append(p_feat)
             ids_t = allgather(torch.cat(ids_t, dim=0), args).squeeze()
-            batch_mask_t = allgather(torch.cat(batch_mask_t, dim=0), args)
-            batch_mask_v = allgather(torch.cat(batch_mask_v, dim=0), args)
             batch_feat_s = allgather(torch.cat(batch_feat_s, dim=0), args)
             batch_feat_w = allgather(torch.cat(batch_feat_w, dim=0), args)
+            batch_mask_t = allgather(torch.cat(batch_mask_t, dim=0), args)
             batch_feat_f = allgather(torch.cat(batch_feat_f, dim=0), args)
             batch_feat_p = allgather(torch.cat(batch_feat_p, dim=0), args)
-            batch_mask_t[ids_t] = batch_mask_t.clone()
-            batch_mask_v[ids_t] = batch_mask_v.clone()
-            batch_feat_s[ids_t] = batch_feat_s.clone()
-            batch_feat_w[ids_t] = batch_feat_w.clone()
-            batch_feat_f[ids_t] = batch_feat_f.clone()
-            batch_feat_p[ids_t] = batch_feat_p.clone()
-            batch_mask_t = batch_mask_t[:ids_t.max() + 1, ...]
-            batch_mask_v = batch_mask_v[:ids_t.max() + 1, ...]
-            batch_feat_s = batch_feat_s[:ids_t.max() + 1, ...]
-            batch_feat_w = batch_feat_w[:ids_t.max() + 1, ...]
-            batch_feat_f = batch_feat_f[:ids_t.max() + 1, ...]
-            batch_feat_p = batch_feat_p[:ids_t.max() + 1, ...]
-
+            batch_mask_v = allgather(torch.cat(batch_mask_v, dim=0), args)
     toc1 = time.time()
 
     with torch.no_grad():
-        sim_matrix = _run_on_single_gpu(model, batch_mask_t, batch_feat_s, batch_feat_w, batch_mask_v, batch_feat_f, batch_feat_p, args.split_batch)
+        sim_matrix = _run_on_single_gpu(model, batch_feat_s, batch_feat_w, batch_mask_t, batch_feat_f, batch_feat_p, batch_mask_v, args.split_batch)
         sim_matrix = np.concatenate(tuple(sim_matrix), axis=0)
     toc2 = time.time()
     if multi_sentence_:
@@ -434,7 +421,6 @@ def eval_epoch(args, model, test_dataloader, device):
         return tv_metrics['R1']
     else:
         logger.info("sim matrix size: {}, {}".format(sim_matrix.shape[0], sim_matrix.shape[1]))
-        # sim_matrix = sim_matrix * np_softmax(sim_matrix * 100, axis=0)
         tv_metrics = compute_metrics(np_softmax(sim_matrix))
         vt_metrics = compute_metrics(np_softmax(sim_matrix.T))
         logger.info('Length-T: {}, Length-V:{}'.format(len(sim_matrix), len(sim_matrix[0])))
