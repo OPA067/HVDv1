@@ -287,23 +287,22 @@ def train_epoch(epoch, args, model, train_dataloader, device, n_gpu, optimizer, 
     total_loss = total_loss / len(train_dataloader)
     return total_loss, global_step
 
-def _run_on_single_gpu(model, t_mask_list, s_feat_list, w_feat_list, v_mask_list, f_feat_list, p_feat_list, split_batch=32):
+def _run_on_single_gpu(model, batch_s_feat, batch_w_feat, batch_w_mask, batch_f_feat, batch_p_feat, batch_f_mask, split_batch=32):
 
     sim_matrix = []
 
-    batch_s_feat = torch.split(s_feat_list, split_batch)
-    batch_w_feat = torch.split(w_feat_list, split_batch)
-    batch_t_mask = torch.split(t_mask_list, split_batch)
-
-    batch_f_feat = torch.split(f_feat_list, split_batch)
-    batch_p_feat = torch.split(p_feat_list, split_batch)
-    batch_v_mask = torch.split(v_mask_list, split_batch)
+    batch_s_feat = torch.split(batch_s_feat, split_batch)
+    batch_w_feat = torch.split(batch_w_feat, split_batch)
+    batch_w_mask = torch.split(batch_w_mask, split_batch)
+    batch_f_feat = torch.split(batch_f_feat, split_batch)
+    batch_p_feat = torch.split(batch_p_feat, split_batch)
+    batch_f_mask = torch.split(batch_f_mask, split_batch)
 
     with torch.no_grad():
-        for idx1, (s_feat, w_feat) in tqdm(enumerate(zip(batch_s_feat, batch_w_feat))):
+        for idx1, (s_feat, w_feat, w_mask) in tqdm(enumerate(zip(batch_s_feat, batch_w_feat, batch_w_mask))):
             each_row = []
-            for idx2, (f_feat, p_feat) in enumerate(zip(batch_f_feat, batch_p_feat)):
-                logits = model.get_similarity_logits(s_feat, w_feat, f_feat, p_feat)
+            for idx2, (f_feat, p_feat, f_mask) in enumerate(zip(batch_f_feat, batch_p_feat, batch_f_mask)):
+                logits = model.get_similarity_logits(s_feat, w_feat, w_mask, f_feat, p_feat, f_mask)
                 logits = logits.cpu().detach().numpy()
                 each_row.append(logits)
             each_row = np.concatenate(tuple(each_row), axis=-1)
